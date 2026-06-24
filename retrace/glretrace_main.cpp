@@ -861,7 +861,9 @@ retrace::addCallbacks(retrace::Retracer &retracer)
 {
     retracer.addCallbacks(glretrace::gl_callbacks);
     retracer.addCallbacks(glretrace::glx_callbacks);
+#ifdef _WIN32
     retracer.addCallbacks(glretrace::wgl_callbacks);
+#endif
     retracer.addCallbacks(glretrace::cgl_callbacks);
     retracer.addCallbacks(glretrace::egl_callbacks);
 }

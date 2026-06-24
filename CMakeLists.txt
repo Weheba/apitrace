@@ -574,10 +574,9 @@ add_subdirectory (lib)
 add_subdirectory (dispatch)
 add_subdirectory (helpers)
 add_subdirectory (wrappers)
-if (APPLE)
-	message (WARNING "WARNING: glretrace doesn't build yet!!!\n")
-else()
-	add_subdirectory (retrace)
+add_subdirectory (retrace)
+if (NOT APPLE)
+	# frametrim not yet supported on macOS
 	add_subdirectory (frametrim)
 endif ()
 

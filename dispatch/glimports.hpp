@@ -41,8 +41,16 @@
 #endif /* !_WIN32 */
 
 
+// When USE_GLAD is defined (macOS glretrace), GLAD provides GL types/enums
+// so we skip including the Khronos headers to avoid conflicts.
+// We use our own compat header to provide legacy enum definitions.
+#if defined(USE_GLAD)
+#include <glad/gl.h>
+#include "gl_compat_defs.hpp"  // Legacy GL enums not in core profile
+#else
 #include <GL/gl.h>
 #include <GL/glext.h>
+#endif
 
 
 // Windows 8 GL headers define GL_EXT_paletted_texture but not

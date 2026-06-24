@@ -50,6 +50,9 @@
 
 #include "glws.hpp"
 
+// GLAD loader initialization (defined in glproc_gl_glad.cpp)
+extern bool initGladLoader(void);
+
 
 /**
  * Dummy thread to force Cocoa to enter multithreading mode.
@@ -397,6 +400,16 @@ makeCurrentInternal(Drawable *drawable, Drawable *readable, Context *context)
         [cocoaContext->context makeCurrentContext];
 
         cocoaDrawable->currentContext = cocoaContext->context;
+    }
+
+    // Initialize GLAD on first valid context (after any context is made current)
+    static bool gladInitialized = false;
+    if (!gladInitialized && [NSOpenGLContext currentContext] != nil) {
+        if (!initGladLoader()) {
+            std::cerr << "error: failed to initialize GLAD GL loader\n";
+            exit(1);
+        }
+        gladInitialized = true;
     }
 
     return TRUE;

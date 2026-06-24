@@ -613,7 +613,15 @@ if __name__ == '__main__':
     print()
     print('#endif')
     print()
+    # On macOS with GLAD (for glretrace), GLAD provides GL declarations via
+    # glimports.hpp, but we still need the _glFunctionName macros
+    print('#if defined(__APPLE__) && defined(USE_GLAD)')
+    print('// GLAD provides declarations, define macros to map _glXxx to glXxx')
+    for function in glapi.functions:
+        print('#define _%s %s' % (function.name, function.name))
+    print('#else')
     dispatcher.dispatchModuleDecl(glapi)
+    print('#endif  // __APPLE__ && USE_GLAD')
     print()
 
     sys.stdout = open(impl, 'wt')

@@ -25,6 +25,7 @@
 
 
 #include <string.h>
+#include <algorithm>
 
 #include "glproc.hpp"
 #include "retrace.hpp"
@@ -86,6 +87,12 @@
 
 
 using namespace glretrace;
+
+
+// Track the largest IOSurface dimensions seen, for sizing the drawable
+// (declared here so they're available to all functions)
+static int ioSurfaceMaxWidth = 0;
+static int ioSurfaceMaxHeight = 0;
 
 
 typedef std::map<unsigned long long, glws::Drawable *> DrawableMap;
@@ -492,6 +499,10 @@ static void retrace_CGLSetCurrentContext(trace::Call &call) {
         if (!new_context->drawable) {
             glfeatures::Profile profile = new_context->profile();
             new_context->drawable = glretrace::createDrawable(profile);
+            // If we've seen IOSurface dimensions, use them to size the drawable
+            if (ioSurfaceMaxWidth > 0 && ioSurfaceMaxHeight > 0) {
+                new_context->drawable->resize(ioSurfaceMaxWidth, ioSurfaceMaxHeight);
+            }
         }
         new_drawable = new_context->drawable;
     }
@@ -543,16 +554,15 @@ static void retrace_CGLSetVirtualScreen(trace::Call &call) {
  * no longer present.  Simply emit a glTexImage2D to ensure the texture storage
  * is present.
  *
+ * Additionally, use the IOSurface dimensions to size the drawable, since this
+ * is typically the actual rendering size on macOS apps using CALayer.
+ *
  * See also:
  * - /System/Library/Frameworks/OpenGL.framework/Headers/CGLIOSurface.h
  */
 static void retrace_CGLTexImageIOSurface2D(trace::Call &call) {
     if (call.ret->toUInt() != kCGLNoError) {
         return;
-    }
-
-    if (retrace::debug > 0) {
-        retrace::warning(call) << "external IOSurface not supported\n";
     }
 
     unsigned long long ctx = call.arg(0).toUIntPtr();
@@ -581,6 +591,18 @@ static void retrace_CGLTexImageIOSurface2D(trace::Call &call) {
     type = static_cast<GLenum>((call.arg(6)).toSInt());
 
     GLvoid * pixels = NULL;
+
+    // Track the IOSurface dimensions - these typically represent the actual window size
+    if (width > ioSurfaceMaxWidth || height > ioSurfaceMaxHeight) {
+        ioSurfaceMaxWidth = std::max(ioSurfaceMaxWidth, (int)width);
+        ioSurfaceMaxHeight = std::max(ioSurfaceMaxHeight, (int)height);
+
+        // Resize any existing drawable to match IOSurface dimensions
+        glretrace::Context *currentContext = glretrace::getCurrentContext();
+        if (currentContext && currentContext->drawable) {
+            currentContext->drawable->resize(ioSurfaceMaxWidth, ioSurfaceMaxHeight);
+        }
+    }
 
     glretrace::Context *currentContext = glretrace::getCurrentContext();
     if (retrace::debug > 0 && currentContext != context) {

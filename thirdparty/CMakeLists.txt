@@ -65,6 +65,12 @@ if (NOT GTEST_FOUND)
     include_with_scope (gtest.cmake)
 endif ()
 
+# GLAD for OpenGL function loading on macOS (glretrace)
+if (APPLE)
+    message (STATUS "Using GLAD for OpenGL loading on macOS")
+    include_with_scope (glad.cmake)
+endif ()
+
 if (MSVC)
     add_subdirectory (getopt)
 else ()

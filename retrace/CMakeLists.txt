@@ -67,14 +67,21 @@ if (WIN32)
 endif ()
 
 
+# WGL-specific files only needed on Windows (use legacy GL features)
+if (WIN32)
+    set (glretrace_wgl_sources
+        glretrace_wgl.cpp
+        glretrace_wgl_font_bitmaps.cpp
+        glretrace_wgl_font_outlines.cpp
+    )
+endif ()
+
 add_library (glretrace_common STATIC
     glretrace.hpp
     glretrace_gl.cpp
     glretrace_cgl.cpp
     glretrace_glx.cpp
-    glretrace_wgl.cpp
-    glretrace_wgl_font_bitmaps.cpp
-    glretrace_wgl_font_outlines.cpp
+    ${glretrace_wgl_sources}
     glretrace_egl.cpp
     glretrace_main.cpp
     glretrace_ws.cpp
@@ -98,22 +105,32 @@ if (PROCPS_FOUND)
     target_link_libraries (glretrace_common ${PROCPS_LIBRARY})
 endif ()
 
+# On macOS, use GLAD for GL function loading
+if (APPLE)
+    target_compile_definitions (glretrace_common PUBLIC USE_GLAD)
+    target_include_directories (glretrace_common PUBLIC
+        ${CMAKE_SOURCE_DIR}/thirdparty/glad/include
+    )
+    target_link_libraries (glretrace_common glad)
+endif ()
+
 
 if (WIN32)
     set (glws_os glws_wgl.cpp)
+    set (glproc_os glproc_gl.cpp)
+elseif (APPLE)
+    set (glws_os glws_cocoa.mm)
+    set (glproc_os glproc_gl_glad.cpp)  # Use GLAD-based loader on macOS
 else ()
-    if (APPLE)
-        set (glws_os glws_cocoa.mm)
-    else ()
-        set (glws_os glws_xlib.cpp glws_glx.cpp)
-    endif ()
+    set (glws_os glws_xlib.cpp glws_glx.cpp)
+    set (glproc_os glproc_gl.cpp)
 endif ()
 
 
 if (WIN32 OR APPLE OR X11_FOUND)
     add_executable (glretrace
         ${glws_os}
-        glproc_gl.cpp
+        ${glproc_os}
     )
 
     add_dependencies (glretrace glproc)
@@ -129,9 +146,14 @@ if (WIN32 OR APPLE OR X11_FOUND)
     else ()
         if (APPLE)
             target_link_libraries (glretrace
+                glad  # GLAD for GL function loading
                 "-framework Cocoa"
                 "-framework ApplicationServices" # CGS*
-                #"-framework OpenGL" # CGL*
+                "-framework OpenGL" # CGL* functions
+            )
+
+            target_include_directories (glretrace PRIVATE
+                ${CMAKE_SOURCE_DIR}/thirdparty/glad/include
             )
 
             # Bundle Info.plist.  Set sdk version to 10.13.0 to avoid blank screen on Mojave
